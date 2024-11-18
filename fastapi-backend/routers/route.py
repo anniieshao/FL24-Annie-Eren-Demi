@@ -61,6 +61,62 @@ async def create_event(
     collection_name.insert_one(event_data)
     return event_serializer(event_data)
 
+# Endpoint to add an RSVP to an event
+@router.post("/{id}/rsvp")
+async def add_rsvp(id: str, username: str = Form(...)):
+    event = collection_name.find_one({"_id": ObjectId(id)})
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    if username in event.get("rsvps", []):
+        # User is already RSVP'd, remove them
+        collection_name.update_one(
+            {"_id": ObjectId(id)},
+            {"$pull": {"rsvps": username}}  # Remove username from RSVPs
+        )
+        return {"message": "RSVP removed successfully!"}
+    else:
+        # User is not RSVP'd, add them
+        collection_name.update_one(
+            {"_id": ObjectId(id)},
+            {"$push": {"rsvps": username}}  # Add username to RSVPs
+        )
+        return {"message": "RSVP successful!"}
+
+# Endpoint to add a comment to an event
+@router.post("/{id}/comment")
+async def add_comment(id: str, username: str = Form(...), comment: str = Form(...)):
+    event = collection_name.find_one({"_id": ObjectId(id)})
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Append the new comment to the comments list
+    collection_name.update_one(
+        {"_id": ObjectId(id)},
+        {"$push": {"comments": f"{username}: {comment}"}}  # Add the new comment
+    )
+    return {"message": "Comment added successfully!"}
+
+@router.delete("/{id}/comments/{index}")
+async def delete_comment(id: str, index: int):
+    event = collection_name.find_one({"_id": ObjectId(id)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    comments = event.get("comments", [])
+    if index < 0 or index >= len(comments):
+        raise HTTPException(status_code=400, detail="Invalid comment index")
+
+    try:
+        # Remove the comment at the specified index
+        removed_comment = comments.pop(index)
+        collection_name.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": {"comments": comments}}
+        )
+        return {"message": f"Comment '{removed_comment}' deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Put request methods
 @router.put("/{id}")

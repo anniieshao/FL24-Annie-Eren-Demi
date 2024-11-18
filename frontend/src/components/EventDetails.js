@@ -5,6 +5,10 @@ import { Box, Typography, Paper, Button, TextField, List, ListItem, ListItemText
 import PlaceIcon from '@mui/icons-material/Place';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import '../styles/EventDetails.css';
+import washuLogo from '../assets/washuLogo.png';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 const EventDetails = () => {
   const { id } = useParams();
@@ -13,12 +17,13 @@ const EventDetails = () => {
   const [error, setError] = useState('');
   const currUser = localStorage.getItem('username');
   const [author, setAuthor] = useState('');
-  const [hasRSVPed, setHasRSVPed] = useState(false); // RSVP state
-
-  // New state variables
-  const [rsvpedUsers, setRsvpedUsers] = useState([]); // State to track RSVPed users
-  const [comments, setComments] = useState([]); // State to store comments
-  const [newComment, setNewComment] = useState(''); // State to manage new comment input
+  const [hasRSVPed, setHasRSVPed] = useState(false);
+  const [rsvps, setRsvps] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingRSVP, setLoadingRSVP] = useState(false);
+  const navigate = useNavigate();
+  const [refreshFlag, setRefreshFlag] = useState(false); // refetch event after a comment is deleted
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -36,7 +41,7 @@ const EventDetails = () => {
       }
     };
     fetchEvent();
-  }, [id, currUser]);
+  }, [id, currUser, refreshFlag]);
 
   // Handle RSVP action
   const handleRSVP = async () => {
@@ -69,6 +74,18 @@ const EventDetails = () => {
       }
     }
   };
+
+  const handleEdit = () => navigate(`/edit-event/${id}`);
+  const handleSnackbarClose = () => setSnackbarOpen(false);
+
+  const handleDeleteComment = async (index) => {
+    try {
+      await axios.delete(`http://localhost:8000/events/${id}/comments/${index}`);
+      setRefreshFlag((prev) => !prev);
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+    }
+  }
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
@@ -116,9 +133,10 @@ const EventDetails = () => {
               {hasRSVPed ? "RSVP'd" : "RSVP"}
             </Button>
             {author === currUser && (
-              <Button variant="contained" color="primary" sx={{ width: '150px' }}>
-                Edit Event
-              </Button>
+              <IconButton onClick={handleEdit} sx={{ color: '#BA0C2F' }}>
+                <EditIcon /> 
+                <Typography>&nbsp;Edit</Typography>
+              </IconButton>
             )}
           </Box>
 
@@ -128,9 +146,14 @@ const EventDetails = () => {
             {comments.length > 0 ? (
               comments.map((comment, index) => (
                 <Box key={index} sx={{ marginBottom: 1 }}>
-                  <Typography variant="body2" sx={{ color: '#333' }}>
-                    <strong>{comment.username}:</strong> {comment.comment}
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" sx={{ color: '#444' }}>
+                      {comment}
+                    </Typography>
+                    <IconButton onClick={() => handleDeleteComment(index)} >
+                      <DeleteOutlineIcon /> 
+                    </IconButton>
+                  </Box>
                   <Divider sx={{ marginY: 1 }} />
                 </Box>
               ))
